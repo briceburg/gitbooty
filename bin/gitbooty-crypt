@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+booty_repo="${GITBOOTY_REPO_CRYPT:-https://github.com/briceburg/booty-crypt}"
+[ -n "$GPG_PUBKEY" ] || { echo "GPG_PUBKEY must be set to use gitbooty-crypt" >&2 ; exit 1; }
+
+type git-remote-gcryptx &>/dev/null || (
+    [ -d "$HOME/git/git-remote-gcrypt" ] || {
+        mkdir -p "$HOME/git"
+        git clone https://github.com/spwhitton/git-remote-gcrypt.git "$HOME/git/git-remote-gcrypt"
+    }
+    cd "$HOME/git/git-remote-gcrypt"
+    sudo DESTDIR= prefix="/usr" ./install.sh
+)
+
+git/config-global/replace(){
+    local name="$1"
+    local value="$2"
+
+    git config --global --get "$name" &>/dev/null || {
+        git config --globbal --add "$name" "$value"
+    }
+}
+
+git/config-global/replace "gcrypt.gpg-args" "--use-agent"
+git/config-global/replace "gcrypt.publish-participants" true
+git/config-global/replace "gcrypt.participants" "$GPG_PUBKEY"
+
+export GITBOOTY_REPO="gcrypt::$booty_repo"
+exec gitbooty "$@"

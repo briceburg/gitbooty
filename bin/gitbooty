@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+# TODO: in theory an alias for 'gitbooty' could be used instead of installing this script... 
+#       the alias would be added to the user's .bashrc/profile-script:
+#         alias gitbooty='/usr/bin/git --git-dir="$HOME/.gitbooty/" --work-tree="$HOME"' 
+#         # or --work-tree="/" in ^^^ if user is root.
+#       ... however, this script may be more familiar and easier to extend long-term.
+
+booty_repo=${GITBOOTY_REPO:-https://github.com/briceburg/booty-dotfiles}
+if [ $EUID -eq 0 ]; then
+  booty_branch="${GITBOOTY_BRANCH_SYSTEM:-system/archlinux}"
+  booty_dir="/root/.gitbooty"
+  booty_tree="/"
+else
+  booty_branch="${GITBOOTY_BRANCH:-briceburg/archlinux}"
+  booty_dir="$HOME/.gitbooty"
+  booty_tree="$HOME"
+fi
+
+echo "booty_branch: $booty_branch" >&2
+echo "booty_dir: $booty_dir" >&2
+echo "booty_repo: $booty_repo" >&2
+echo "booty_tree: $booty_tree" >&2
+
+[ -d "$booty_dir" ] || {
+    git clone --bare --depth 1 --branch "$booty_branch" "$booty_repo" "$booty_dir"
+    git --git-dir "$booty_dir" config status.showUntrackedFiles no
+    git --git-dir "$booty_dir" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+    git --git-dir "$booty_dir" fetch --depth 1
+    git --git-dir "$booty_dir" branch -u "origin/$booty_branch" "$booty_branch"
+    git --git-dir "$booty_dir" --work-tree "$booty_tree" checkout --force
+}
+exec git --git-dir "$booty_dir" --work-tree "$booty_tree" "$@"
